@@ -1,0 +1,17 @@
+# 忽略根目录下所有内容
+/*
+
+# 不忽略 .gitignore 自身
+!.gitignore
+
+# 仅允许以下文件夹
+!/Assets
+!/Packages
+!/ProjectSettings
+!/UserSettings
+
+# 确保这些文件夹内的所有内容都不被忽略
+!/Assets/**
+!/Packages/**
+!/ProjectSettings/**
+!/UserSettings/**

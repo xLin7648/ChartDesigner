@@ -1,0 +1,16 @@
+{
+    "name": "ShaderLoad",
+    "rootNamespace": "",
+    "references": [
+        "GUID:cf95b0688d4710e4b8691e839c7b34a6"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
