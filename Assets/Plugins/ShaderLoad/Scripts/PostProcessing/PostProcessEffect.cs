@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using ShaderLoad.Util;
 using System.Collections.Generic;
 
 namespace ShaderLoad.PostProcess
@@ -7,18 +8,18 @@ namespace ShaderLoad.PostProcess
     /// Post-processing effect that manages a Material and flushes registered float/vector
     /// properties before each blit. Not inheritable — use composition instead.
     /// </summary>
+    [System.Serializable]
     public sealed class PostProcessEffect
     {
         private Material _material;
         private readonly Shader _shader;
-        private readonly Dictionary<string, float> _floats = new();
-        private readonly Dictionary<string, Vector4> _vectors = new();
+        [SerializeField] private FloatDictionary _floats = new();
+        [SerializeField] private VectorDictionary _vectors = new();
 
         public bool IsSupported => _shader != null && _shader.isSupported;
 
         /// <param name="shader">Shader for this effect.</param>
-        /// <param name="floatPropertyNames">Float property names to register (must match shader property names).</param>
-        /// <param name="vectorPropertyNames">Vector4 property names to register.</param>
+        /// <param name="uniforms">uniforms.</param>
         public PostProcessEffect(Shader shader, IReadOnlyList<UniformInfo> uniforms = null)
         {
             _shader = shader;
@@ -29,6 +30,8 @@ namespace ShaderLoad.PostProcess
                     hideFlags = HideFlags.DontSave
                 };
             }
+
+            if (uniforms == null) return;
 
             foreach (var uniform in uniforms)
             {
@@ -101,5 +104,4 @@ namespace ShaderLoad.PostProcess
                 _material.SetVector(kvp.Key, kvp.Value);
         }
     }
-
 }

@@ -21,7 +21,7 @@ namespace ShaderLoad.PostProcess
         private readonly List<PostProcessEffect> effects = new();
 
         // 复用列表，避免每帧分配
-        private readonly List<PostProcessEffect> _activeEffects = new();
+        [SerializeField] private List<PostProcessEffect> _activeEffects = new();
 
         private Camera _camera;
 
