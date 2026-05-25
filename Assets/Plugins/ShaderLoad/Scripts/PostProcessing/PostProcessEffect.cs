@@ -13,8 +13,8 @@ namespace ShaderLoad.PostProcess
     {
         private Material _material;
         private readonly Shader _shader;
-        [SerializeField] private FloatDictionary _floats = new();
-        [SerializeField] private VectorDictionary _vectors = new();
+        [SerializeField] private FloatDictionary FloatUniforms = new();
+        [SerializeField] private VectorDictionary VectorUniforms = new();
 
         public bool IsSupported => _shader != null && _shader.isSupported;
 
@@ -39,11 +39,11 @@ namespace ShaderLoad.PostProcess
 
                 if (uniform.Type is "float")
                 {
-                    _floats[uniform.Name] = 0f;
+                    FloatUniforms[uniform.Name] = 0f;
                 }
                 else if (uniform.Type is "vec2" or "vec3" or "vec4")
                 {
-                    _vectors[uniform.Name] = Vector4.zero;
+                    VectorUniforms[uniform.Name] = Vector4.zero;
                 }
             }
         }
@@ -53,12 +53,12 @@ namespace ShaderLoad.PostProcess
         /// </summary>
         public void SetFloat(string name, float value)
         {
-            if (!_floats.ContainsKey(name))
+            if (!FloatUniforms.ContainsKey(name))
             {
                 Debug.LogError($"[PostProcessEffect] Float property '{name}' is not registered.");
                 return;
             }
-            _floats[name] = value;
+            FloatUniforms[name] = value;
         }
 
         /// <summary>
@@ -66,12 +66,12 @@ namespace ShaderLoad.PostProcess
         /// </summary>
         public void SetVector(string name, Vector4 value)
         {
-            if (!_vectors.ContainsKey(name))
+            if (!VectorUniforms.ContainsKey(name))
             {
                 Debug.LogError($"[PostProcessEffect] Vector property '{name}' is not registered.");
                 return;
             }
-            _vectors[name] = value;
+            VectorUniforms[name] = value;
         }
 
         /// <summary>
@@ -98,9 +98,9 @@ namespace ShaderLoad.PostProcess
 
         private void FlushProperties()
         {
-            foreach (var kvp in _floats)
+            foreach (var kvp in FloatUniforms)
                 _material.SetFloat(kvp.Key, kvp.Value);
-            foreach (var kvp in _vectors)
+            foreach (var kvp in VectorUniforms)
                 _material.SetVector(kvp.Key, kvp.Value);
         }
     }

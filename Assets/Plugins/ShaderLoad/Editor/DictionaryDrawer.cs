@@ -24,9 +24,8 @@ namespace ShaderLoad.Editor
                 return LineHeight;
 
             var entries = property.FindPropertyRelative("_entries");
-            float h = LineHeight + Gap;                    // foldout header
-            h += LineHeight + Gap;                         // "Size: N" label
-            h += entries.arraySize * GetRowHeight();        // rows
+            float h = LineHeight + Gap;                     // foldout header
+            h += entries.arraySize * GetRowHeight();         // rows
             return h;
         }
 
@@ -47,21 +46,15 @@ namespace ShaderLoad.Editor
 
             var entries = property.FindPropertyRelative("_entries");
 
-            // ---- read-only size label ----
-            Rect sizeRect = new(position.x, position.y, position.width, LineHeight);
-            EditorGUI.LabelField(sizeRect, "Size", entries.arraySize.ToString());
-            position.y += LineHeight + Gap;
-
             // ---- entries ----
-            EditorGUI.indentLevel++;
             for (int i = 0; i < entries.arraySize; i++)
             {
                 var entry = entries.GetArrayElementAtIndex(i);
                 var keyProp = entry.FindPropertyRelative("key");
                 var valProp = entry.FindPropertyRelative("value");
 
-                const float keyW = 76f;
-                float valW = position.width - keyW - 4f;
+                float keyW = position.width * 0.38f;
+                float valW = position.width * 0.58f;
 
                 Rect keyRect = new(position.x, position.y, keyW, LineHeight);
                 Rect valRect = new(position.x + keyW + 4f, position.y, valW, LineHeight);
@@ -71,7 +64,6 @@ namespace ShaderLoad.Editor
 
                 position.y += GetRowHeight();
             }
-            EditorGUI.indentLevel--;
 
             EditorGUI.EndProperty();
         }
