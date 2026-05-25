@@ -357,7 +357,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 68.75
+  m_fontSize: 55.5
   m_fontSizeBase: 14
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -506,6 +506,7 @@ Canvas:
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 25
   m_SortingLayerID: 0
   m_SortingOrder: 0
@@ -887,6 +888,7 @@ Canvas:
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 25
   m_SortingLayerID: 0
   m_SortingOrder: -20
@@ -1699,7 +1701,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 22400762, guid: 67117722a812a2e46ab8cb8eafbf5f5e, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0.0000038146973
+      value: -0.000011444092
       objectReference: {fileID: 0}
     - target: {fileID: 22426080, guid: 67117722a812a2e46ab8cb8eafbf5f5e, type: 3}
       propertyPath: m_AnchorMax.x
@@ -1707,6 +1709,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 22426080, guid: 67117722a812a2e46ab8cb8eafbf5f5e, type: 3}
       propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 22426080, guid: 67117722a812a2e46ab8cb8eafbf5f5e, type: 3}
+      propertyPath: m_AnchorMin.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 22428984, guid: 67117722a812a2e46ab8cb8eafbf5f5e, type: 3}
@@ -2570,7 +2576,8 @@ MonoBehaviour:
     / float(sample_count - 1); // range 0.0->2.0\r\n    vec3 slice = vec3(1.0 - t,
     1.0 - abs(t - 1.0), t - 1.0);\r\n    slice = max(slice, 0.0);\r\n    sum += slice;\r\n   
     vec2 slice_offset = (t - 1.0) * power * offset;\r\n    c += slice * tex2D(uv
-    + slice_offset).rgb;\r\n  }\r\n  fragColor.rgb = c / sum;\r\n}"
+    + slice_offset).rgb;\r\n  }\r\n  fragColor.rgb = c / sum;\r\n  fragColor.a =
+    1;\r\n}"
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0
@@ -3264,7 +3271,8 @@ MonoBehaviour:
     / float(sample_count - 1); // range 0.0->2.0\r\n    vec3 slice = vec3(1.0 - t,
     1.0 - abs(t - 1.0), t - 1.0);\r\n    slice = max(slice, 0.0);\r\n    sum += slice;\r\n   
     vec2 slice_offset = (t - 1.0) * power * offset;\r\n    c += slice * tex2D(uv
-    + slice_offset).rgb;\r\n  }\r\n  fragColor.rgb = c / sum;\r\n}\u200B"
+    + slice_offset).rgb;\r\n  }\r\n  fragColor.rgb = c / sum;\r\n  fragColor.a =
+    1;\r\n}\u200B"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5141c34961992f04987de35f8a5e0e32, type: 2}
   m_sharedMaterial: {fileID: -7414065218564230281, guid: 5141c34961992f04987de35f8a5e0e32, type: 2}
@@ -4279,6 +4287,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enablePostProcessing: 1
+  _activeEffects: []
 --- !u!210 &1946689349
 SortingGroup:
   m_ObjectHideFlags: 0
