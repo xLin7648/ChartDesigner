@@ -39,6 +39,5 @@ __MAIN__
 void main() {
     vec4 fragColor = vec4(1);
     mainImage(fragColor, vs_TEXCOORD0);
-    fragColor.a = 1.0;
     SV_Target0 = fragColor;
 }
