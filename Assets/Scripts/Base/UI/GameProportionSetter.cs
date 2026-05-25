@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,6 +19,7 @@ public class GameProportionSetter : MonoBehaviour
     [SerializeField] private Camera Camera_Game;
     [SerializeField] private RawImage RawImage_GameView;
     [SerializeField] private AspectRatioFitter Arf;
+    [SerializeField] private AspectRatioFitter Arf2;
 
     [SerializeField] private List<ProportionConfig> ProportionConfigs;
     private TMP_Dropdown m_Dropdown;
@@ -34,7 +35,7 @@ public class GameProportionSetter : MonoBehaviour
 
         if (
             Camera_Game == null || m_Dropdown == null || 
-            Arf == null || RawImage_GameView == null
+            Arf == null || Arf2 == null || RawImage_GameView == null
         )
         {
             enabled = false;
@@ -72,7 +73,7 @@ public class GameProportionSetter : MonoBehaviour
         if (cfg == null) return;
         if (
             Camera_Game == null || m_Dropdown == null ||
-            Arf == null || RawImage_GameView == null
+            Arf == null || Arf2 == null || RawImage_GameView == null
         )
         {
             enabled = false;
@@ -98,7 +99,7 @@ public class GameProportionSetter : MonoBehaviour
                 Camera_Game.targetTexture = rt;
 
             Camera_Game.Render();
-            Arf.aspectRatio = (float)cfg.w / cfg.h;
+            Arf.aspectRatio = Arf2.aspectRatio = (float)cfg.w / cfg.h;
 
             UIEventControl.DispensEvent(UIEventEnum.GameAreaChanged);
         }
