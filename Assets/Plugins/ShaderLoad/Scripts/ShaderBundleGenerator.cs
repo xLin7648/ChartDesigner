@@ -1,5 +1,6 @@
 ﻿using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+using Codice.Client.BaseCommands;
 using LZ4ps;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -29,29 +30,41 @@ namespace ShaderLoad
     public readonly struct ShaderParseResult
     {
         public IReadOnlyList<UniformInfo> Uniforms { get; }
+        public IReadOnlyList<UniformInfo> SortedUniforms { get; }
         public IReadOnlyList<string> Errors { get; }
         public string ShaderText { get; }
+        public byte[] ShaderBytes { get; }
 
         public bool IsValid => Errors != null && Errors.Count == 0;
 
         public static ShaderParseResult Empty { get; } = new(
             Array.Empty<UniformInfo>(),
+            Array.Empty<UniformInfo>(),
             Array.Empty<string>(),
             string.Empty
         );
 
-        public ShaderParseResult(IReadOnlyList<UniformInfo> uniforms, IReadOnlyList<string> errors, string shaderText)
+        public ShaderParseResult(
+            IReadOnlyList<UniformInfo> uniforms, 
+            IReadOnlyList<UniformInfo> sortedUniforms, 
+            IReadOnlyList<string> errors, 
+            string shaderText = null,
+            byte[] shaderBytes = null
+        )
         {
             Uniforms = uniforms ?? Array.Empty<UniformInfo>();
+            SortedUniforms = sortedUniforms ?? Array.Empty<UniformInfo>();
             Errors = errors ?? Array.Empty<string>();
 
             if (errors.Count > 0)
             {
                 ShaderText = string.Empty;
+                ShaderBytes = shaderBytes;
             }
             else
             {
                 ShaderText = shaderText ?? string.Empty;
+                ShaderBytes = shaderBytes ?? new byte[0];
             }
         }
     }
@@ -84,6 +97,11 @@ namespace ShaderLoad
 
         public void Unload()
         {
+            if (Shader != null)
+            {
+                UnityEngine.Object.DestroyImmediate(Shader, true);
+            }
+
             if (m_bundle != null)
             {
                 m_bundle.Unload(true);
@@ -130,26 +148,27 @@ namespace ShaderLoad
             string shaderName
         )
         {
+            var parseResult = GlslParser.Parse(glsl, GetGraphicsApiPlatform());
+            if (!parseResult.IsValid)
+            {
+                foreach (var err in parseResult.Errors)
+                {
+                    Debug.LogError(err);
+                }
+                return null;
+            }
+
+            bundleName = bundleName.ToLower();
+            shaderName = shaderName.ToLower();
+
+            var savePath = Application.persistentDataPath;
+            Create_Internal(bundleName, shaderName, savePath, parseResult);
+            var bundle = AssetBundle.LoadFromFile(Path.Combine(savePath, $"{bundleName}.assets"));
+
+            return new ShaderBundle(shaderName, bundle, parseResult);
             try
             {
-                var parseResult = GlslParser.Parse(glsl, GetGraphicsApiPlatform());
-                if (!parseResult.IsValid)
-                {
-                    foreach (var err in parseResult.Errors)
-                    {
-                        Debug.LogError(err);
-                    }
-                    return null;
-                }
-
-                bundleName = bundleName.ToLower();
-                shaderName = shaderName.ToLower();
-
-                var savePath = Application.persistentDataPath;
-                Create_Internal(bundleName, shaderName, savePath, parseResult);
-                var bundle = AssetBundle.LoadFromFile(Path.Combine(savePath, $"{bundleName}.assets"));
-
-                return new ShaderBundle(shaderName, bundle, parseResult);
+                
             }
             catch (Exception ex)
             {
@@ -251,6 +270,7 @@ namespace ShaderLoad
             foreach (var uniform in parseResult.Uniforms)
             {
                 if (uniform.Name == "_Time") continue;
+                if (uniform.Name == "_ScreenSize") continue;
 
                 var propertieTmp = (JObject)JsonConvert.DeserializeObject(ShaderJsonDatas.PropertieDatas);
                 propertieTmp["m_Name"] = uniform.Name;
@@ -265,25 +285,113 @@ namespace ShaderLoad
                 properties.Add(propertieTmp);
             }
 
-            if (gfxApiPlatform == ShaderTargetPlatform.OpenGLCore)
-            {
-                var sortedUniforms = parseResult.Uniforms
-                    .OrderBy(x => x.Type switch
-                    {
-                        "float" => 0,
-                        "vec2" or "vec3" or "vec4" => 1,
-                        _ => 0
-                    }).ToList();
-                var uniformCount = sortedUniforms.Count;
-                var uniformSize = sortedUniforms.Sum(x => x.Size);
+            var uniformCount = parseResult.SortedUniforms.Count;
+            var names = pass["m_NameIndices"]["Array"] as JArray;
 
-                var names = pass["m_NameIndices"]["Array"] as JArray;
+            if (gfxApiPlatform == ShaderTargetPlatform.Vulkan)
+            {
+                {
+                    // var max = 0;
+
+                    for (int i = 0; i < uniformCount; i++)
+                    {
+                        var uniform = parseResult.SortedUniforms[i];
+                        names.Add(JToken.FromObject(new
+                        {
+                            first = uniform.Name,
+                            second = i + 3,
+                        }));
+                    }
+
+                    var c = uniformCount + 3 - 1;
+                    names.Add(JToken.FromObject(new
+                    {
+                        first = "unity_MatrixVP",
+                        second = c + 2,
+                    }));
+
+                    names.Add(JToken.FromObject(new
+                    {
+                        first = "unity_ObjectToWorld",
+                        second = c + 3,
+                    }));
+
+                    names.Insert(3, JToken.FromObject(new
+                    {
+                        first = "_MainTex_ST",
+                        second = c + 1,
+                    }));
+                }
+
+                var namesDic = names.ToDictionary(
+                    x => x["first"].ToString(),
+                    x => x["second"]
+                );
+
+                var uniformSize = parseResult.SortedUniforms.Sum(x => x.Type switch
+                {
+                    "float" => 4,
+                    "vec2" or "vec3" or "vec4" => 16,
+                    _ => 0
+                });
+
+                {
+                    var buffer = pass["progVertex"]["m_CommonParameters"]["m_ConstantBuffers"]["Array"][0];
+                    buffer["m_Size"] = uniformSize;
+
+                    var parmas = buffer["m_VectorParams"]["Array"] as JArray;
+                    parmas.Clear();
+
+                    var idx = 0;
+                    for (int i = 0; i < uniformCount; i++)
+                    {
+                        var uniform = parseResult.SortedUniforms[i];
+                        parmas.Add(JToken.FromObject(new
+                        {
+                            m_NameIndex = i + 3,
+                            m_Index = idx,
+                            m_ArraySize = 0,
+                            m_Type = 0,
+                            m_Dim = uniform.Type switch
+                            {
+                                "float" => 1,
+                                "vec2" or "vec3" or "vec4" => 4,
+                                _ => 0
+                            },
+                        }));
+
+                        idx += uniform.Type switch
+                        {
+                            "float" => 4,
+                            "vec2" or "vec3" or "vec4" => 16,
+                            _ => 0
+                        };
+                    }
+                }
+
+                {
+                    var buffer = pass["progVertex"]["m_CommonParameters"]["m_ConstantBuffers"]["Array"][1];
+
+                    {
+                        buffer["m_MatrixParams"]["Array"][0]["m_NameIndex"] = namesDic["unity_MatrixVP"];
+                        buffer["m_MatrixParams"]["Array"][1]["m_NameIndex"] = namesDic["unity_ObjectToWorld"];
+                        buffer["m_VectorParams"]["Array"][0]["m_NameIndex"] = namesDic["_MainTex_ST"];
+                    }
+                }
+
+                // pass["progVertex"]["m_CommonParameters"]["m_ConstantBufferBindings"]["Array"][1]["m_Index"] = 134283265;
+
+                compressedBlob = VulkanBinaryEditor.BuildTemplate(uniformSize, parseResult.ShaderBytes, gfxApiPlatform);
+            }
+            else if (gfxApiPlatform == ShaderTargetPlatform.OpenGLCore)
+            {
+                var uniformSize = parseResult.SortedUniforms.Sum(x => x.Size);
                 {
                     var max = 0;
 
                     for (int i = 0; i < uniformCount; i++)
                     {
-                        var uniform = sortedUniforms[i];
+                        var uniform = parseResult.SortedUniforms[i];
                         names.Add(JToken.FromObject(new
                         {
                             first = uniform.Name,
@@ -324,7 +432,7 @@ namespace ShaderLoad
 
                     for (int i = 0; i < uniformCount; i++)
                     {
-                        var uniform = sortedUniforms[i];
+                        var uniform = parseResult.SortedUniforms[i];
                         parmas.Add(JToken.FromObject(new
                         {
                             m_NameIndex = i + 2,
@@ -342,7 +450,6 @@ namespace ShaderLoad
                 }
 
                 {
-                    var startID = 2 + uniformCount;
                     var buffer = pass["progVertex"]["m_CommonParameters"]["m_ConstantBuffers"]["Array"][1];
 
                     {
@@ -356,54 +463,39 @@ namespace ShaderLoad
             }
             else if (gfxApiPlatform == ShaderTargetPlatform.OpenGLES3)
             {
-                var sortedUniforms = parseResult.Uniforms
-                    .OrderBy(x => x.Type switch
-                    {
-                        "float" => 0,
-                        "vec2" or "vec3" or "vec4" => 1,
-                        _ => 0
-                    }).ToList();
-                var uniformCount = sortedUniforms.Count;
-                var uniformSize = sortedUniforms.Sum(x => x.Size);
-
+                var uniformSize = parseResult.SortedUniforms.Sum(x => x.Size);
+                for (int i = 0; i < uniformCount; i++)
                 {
-                    var names = pass["m_NameIndices"]["Array"] as JArray;
-
-                    for (int i = 0; i < uniformCount; i++)
+                    var uniform = parseResult.SortedUniforms[i];
+                    names.Add(JToken.FromObject(new
                     {
-                        var uniform = sortedUniforms[i];
-                        names.Add(JToken.FromObject(new
-                        {
-                            first = uniform.Name,
-                            second = i + 2,
-                        }));
-                    }
+                        first = uniform.Name,
+                        second = i + 2,
+                    }));
                 }
 
+                var buffer = pass["progVertex"]["m_CommonParameters"]["m_ConstantBuffers"]["Array"][0];
+                buffer["m_Size"] = uniformSize;
+
+                var parmas = buffer["m_VectorParams"]["Array"] as JArray;
+                parmas.Clear();
+
+                for (int i = 0; i < uniformCount; i++)
                 {
-                    var buffer = pass["progVertex"]["m_CommonParameters"]["m_ConstantBuffers"]["Array"][0];
-                    buffer["m_Size"] = uniformSize;
-
-                    var parmas = buffer["m_VectorParams"]["Array"] as JArray;
-                    parmas.Clear();
-
-                    for (int i = 0; i < uniformCount; i++)
+                    var uniform = parseResult.SortedUniforms[i];
+                    parmas.Add(JToken.FromObject(new
                     {
-                        var uniform = sortedUniforms[i];
-                        parmas.Add(JToken.FromObject(new
+                        m_NameIndex = i + 2,
+                        m_Index = i * 16,
+                        m_ArraySize = 0,
+                        m_Type = 0,
+                        m_Dim = uniform.Type switch
                         {
-                            m_NameIndex = i + 2,
-                            m_Index = i * 16,
-                            m_ArraySize = 0,
-                            m_Type = 0,
-                            m_Dim = uniform.Type switch
-                            {
-                                "float" => 1,
-                                "vec2" or "vec3" or "vec4" => 4,
-                                _ => 0
-                            },
-                        }));
-                    }
+                            "float" => 1,
+                            "vec2" or "vec3" or "vec4" => 4,
+                            _ => 0
+                        },
+                    }));
                 }
 
                 compressedBlob = Gles3BinaryEditor.BuildTemplate(uniformSize, parseResult.ShaderText, gfxApiPlatform);
@@ -504,6 +596,7 @@ namespace ShaderLoad
 
         private ShaderTargetPlatform GetGraphicsApiPlatform() => SystemInfo.graphicsDeviceType switch
         {
+            GraphicsDeviceType.Vulkan => ShaderTargetPlatform.Vulkan,
             GraphicsDeviceType.OpenGLES3 => ShaderTargetPlatform.OpenGLES3,
             GraphicsDeviceType.OpenGLCore => ShaderTargetPlatform.OpenGLCore,
             _ => throw new Exception("不支持的平台。")

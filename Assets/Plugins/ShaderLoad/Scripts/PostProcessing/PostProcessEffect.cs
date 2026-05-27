@@ -11,7 +11,7 @@ namespace ShaderLoad.PostProcess
     [System.Serializable]
     public sealed class PostProcessEffect
     {
-        private Material _material;
+        private readonly Material _material;
         private readonly Shader _shader;
         [SerializeField] private FloatDictionary FloatUniforms = new();
         [SerializeField] private VectorDictionary VectorUniforms = new();
@@ -93,7 +93,7 @@ namespace ShaderLoad.PostProcess
         internal void Cleanup()
         {
             if (_material != null)
-                Object.DestroyImmediate(_material);
+                Object.DestroyImmediate(_material, true);
         }
 
         private void FlushProperties()

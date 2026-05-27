@@ -63,10 +63,12 @@ namespace ShaderLoad.PostProcess
 
         public bool RemoveEffect(PostProcessEffect postProcessEffect)
         {
+            postProcessEffect?.Cleanup();
+            _activeEffects.Remove(postProcessEffect);
             return effects.Remove(postProcessEffect);
         }
 
-        private void UpdateBuffers()
+        private void UpdateBuffers(bool force = false)
         {
             int w = _camera.pixelWidth;
             int h = _camera.pixelHeight;
@@ -74,10 +76,13 @@ namespace ShaderLoad.PostProcess
 
             RenderTextureFormat fmt = RenderTextureFormat.Default;
 
-            if (_buffer1 != null && _buffer2 != null &&
-                _buffer1.width == w && _buffer1.height == h && _buffer1.format == fmt)
+            if (!force)
             {
-                return;
+                if (_buffer1 != null && _buffer2 != null &&
+                _buffer1.width == w && _buffer1.height == h && _buffer1.format == fmt)
+                {
+                    return;
+                }
             }
 
             ReleaseBuffers();

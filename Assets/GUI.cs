@@ -9,9 +9,11 @@ using UnityEngine.UI;
 
 public class GUI : MonoBehaviour
 {
+    public Camera cam;
     public TMP_InputField Input_ShaderName;
     public TMP_InputField Input_Shader;
     public Button Btn_Run;
+    public Button Btn_Clean;
 
     public ShaderBundleGenerator generator;
     public PostProcessManager postProcessManager;
@@ -22,11 +24,13 @@ public class GUI : MonoBehaviour
     private void OnEnable()
     {
         Btn_Run.onClick.AddListener(OnBtn_RunClick);
+        Btn_Clean.onClick.AddListener(OnBtn_CleanClick);
     }
 
     private void OnDisable()
     {
         Btn_Run.onClick.RemoveListener(OnBtn_RunClick);
+        Btn_Clean.onClick.RemoveListener(OnBtn_CleanClick);
     }
 
     private void OnDestroy()
@@ -38,22 +42,28 @@ public class GUI : MonoBehaviour
     {
         if (shaderAB.HasValue)
         {
-            shaderAB.Value.Unload();
-            shaderAB = null;
-
             postProcessManager.RemoveEffect(postProcessEffect);
             postProcessEffect = null;
+
+            shaderAB.Value.Unload();
+            shaderAB = null;
         }
     }
 
     private void OnBtn_RunClick()
     {
+        StartCoroutine(nameof(Run));
+    }
+
+    private IEnumerator Run()
+    {
         if (string.IsNullOrEmpty(Input_Shader.text) || string.IsNullOrEmpty(Input_ShaderName.text))
         {
-            return;
+            yield break;
         }
 
         Cleanup();
+        yield return null;
 
         var name = Input_ShaderName.text.ToLower();
 
@@ -65,5 +75,10 @@ public class GUI : MonoBehaviour
             //postProcessEffect.SetFloat("power", 0.03F);
             //p.SetFloat("size", 10);
         }
+    }
+
+    private void OnBtn_CleanClick()
+    {
+        Cleanup();
     }
 }

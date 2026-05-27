@@ -1,17 +1,19 @@
 ﻿using ShaderLoad.Util;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using UnityEditor.PackageManager;
+using UnityEditor.Search;
 using UnityEngine;
+using UnityEngine.Windows;
+using static UnityEngine.GraphicsBuffer;
 
 namespace ShaderLoad
 {
-    /// <summary>
-    /// 解析 1.glsl 格式的用户着色器，提取 uniform 信息和做基本语法校验。
-    /// </summary>
-    public static class GlslParser
+    public static class UniformParser
     {
         /// <summary>
         /// 支持的 uniform 类型白名单。vec(n) 和 float 以外的类型不计入 CB。
@@ -21,68 +23,81 @@ namespace ShaderLoad
             "float", "vec2", "vec3", "vec4"
         };
 
-        private static readonly List<UniformInfo> BuiltInUniforms = new()
+        /// <summary>
+        /// 内置的Uniform
+        /// </summary>
+        private static readonly List<UniformInfo> UnityBuiltInUniforms = new()
         {
             new("vec4", "_Time"),
+            // new("vec2", "_ScreenSize")
+        };
+
+        /// <summary>
+        /// 内置的Uniform
+        /// </summary>
+        private static readonly List<UniformInfo> BuiltInUniforms = new()
+        {
+            // new("vec4", "_Time"),
             new("vec2", "_ScreenSize")
         };
 
-        private static readonly Regex UniformRegex = new Regex(
-            @"(?:\blayout\s*\([^)]*\)\s*)?" +
+        // 修改后的正则：只允许 uniform 类型 变量名;
+        public static readonly Regex UniformRegex = new(
             @"uniform\s+" +
-            @"(?:(?:highp|mediump|lowp)\s+)?" +
             @"(\w+)\s+" +
             @"(\w+)\s*" +
-            @";"
+            @";",
+            RegexOptions.Multiline
         );
 
-        // 无需再维护 GLSL 关键字/类型/内置函数/内置变量等符号表，
-        // 语法相关的校验已交由 glslang Rust 库处理。
-
-        // ===== FFI: 调用 Rust glslang 验证库 =====
-
-#if UNITY_IOS
-        private const string LibName = "__Internal";
-#else
-        private const string LibName = "glsl_verify";
-#endif
-
         /// <summary>
-        /// Rust 库的 FFI 入口。
-        /// 返回值：-1 = 有效，>= 0 = 无效，返回值为完整错误信息长度（不含空终止）。
-        /// 若返回值 >= errorBufSize，说明 buffer 不够，调用者应重试。
-        ///
-        /// DLL 名称说明：
-        /// - 直接使用 cdylib 时改为 "glsl_verify"
-        /// - 包装为 Unity Native Plugin 时改为插件 DLL 名
-        /// - IL2CPP 静态链接时改为 "__Internal"
+        /// 从 Shader 源码中提取 // __UNIFORMS__ 和 // __MAIN__ 之间的内容，并解析出所有 uniform 变量。
         /// </summary>
-        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int glsl_validate_bytes(
-            byte[] source, int sourceLen,
-            [Out] byte[] errorBuf, int errorBufSize);
-
-        /// <summary>
-        /// 将 GLSL 源码通过 FFI 传递给 Rust glslang 库进行语法验证，
-        /// 错误信息写入 errors 列表。
-        /// </summary>
-        private static void ValidateGlsl(string source, List<string> errors)
+        /// <returns>返回字典：变量名 -> 类型名</returns>
+        internal static UniformInfo[] ParseUniformsFromShader(ShaderTargetPlatform target, string shaderSource, List<string> errors = null)
         {
-            if (string.IsNullOrEmpty(source))
+            var uniformDic = new Dictionary<string, string>();
+            var matches = UniformRegex.Matches(shaderSource);
+            var builtInUniformNames = UnityBuiltInUniforms
+                .Concat(BuiltInUniforms)
+                .Select(x => x.Name)
+                .ToList();
+
+            foreach (Match match in matches)
             {
-                errors.Add("源码为空");
-                return;
+                if (match.Success)
+                {
+                    string type = match.Groups[1].Value;   // 类型，例如 float, vec3
+                    string name = match.Groups[2].Value;   // 变量名，例如 u_time
+
+                    if (builtInUniformNames.Contains(name))
+                    {
+                        errors?.Add($"\"{name}\" 是内置 Uniform，请换个名称");
+                        continue;
+                    }
+
+                    if (!SupportedUniformTypes.Contains(type))
+                    {
+                        errors?.Add($"不支持的 uniform 类型 \"{name}\"（{name}）：只允许 float/vec2/vec3/vec4");
+                        continue;
+                    }
+
+                    uniformDic[name] = type;                 // 存储
+                }
             }
-            byte[] utf8 = Encoding.UTF8.GetBytes(source);
-            byte[] errorBuf = new byte[4096];
-            int result = glsl_validate_bytes(utf8, utf8.Length, errorBuf, errorBuf.Length);
-            if (result < 0) return;
 
-            int copyLen = Math.Min(result, errorBuf.Length);
-            string errorMsg = Encoding.UTF8.GetString(errorBuf, 0, copyLen).TrimEnd('\0');
-            errors.Add(errorMsg);
+            return UnityBuiltInUniforms
+                .Concat(BuiltInUniforms)
+                .Concat(uniformDic.Select(x => new UniformInfo(x.Value, x.Key)))
+                .ToArray();
         }
+    }
 
+    /// <summary>
+    /// 解析 1.glsl 格式的用户着色器，提取 uniform 信息和做基本语法校验。
+    /// </summary>
+    public static class GlslParser
+    {
         // ===== Public API =====
 
         /// <summary>
@@ -92,62 +107,161 @@ namespace ShaderLoad
         /// <param name="source">GLSL 源码</param>
         internal static ShaderParseResult Parse(
             string source,
-            ShaderTargetPlatform shaderTargetPlatform)
+            ShaderTargetPlatform target)
         {
-            var uniforms = new List<UniformInfo>();
-            var errors = new List<string>();
-
-            // 模板结构约束校验（预编译指令、layout、precision 等）
-            ValidateFragmentOnly(source, errors);
-
-            // 提取 uniform
-            string clean = StripCommentsAndPreprocessor(source);
-
-            foreach (Match m in UniformRegex.Matches(clean))
+            try
             {
-                uniforms.Add(new UniformInfo(m.Groups[1].Value, m.Groups[2].Value));
-            }
+                bool isUbo = target is ShaderTargetPlatform.Vulkan or ShaderTargetPlatform.Metal;
 
-            // 校验 uniform 类型（仅允许 float/vec2/vec3/vec4 四种）
-            foreach (var u in uniforms)
+                var uniforms = new List<UniformInfo>();
+                var errors = new List<string>();
+
+                // 模板结构约束校验（预编译指令、layout、precision 等）
+                ValidateFragmentOnly(source, errors);
+
+                // 提取 uniform
+                string clean = StripCommentsAndPreprocessor(source);
+
+                if (!MainFuncRegex.IsMatch(clean))
+                {
+                    errors.Add("无论如何都必须有 void mainImage(out vec4 fragColor, in vec2 fragCoord)");
+                    throw new Exception();
+                }
+
+                uniforms.AddRange(UniformParser.ParseUniformsFromShader(target, clean, errors));
+                var sortedUniforms = uniforms.OrderBy(x => x.Name).ToList();
+
+                var mainFunc = UniformParser.UniformRegex.Replace(clean, string.Empty).TrimStart();
+
+                var uniformSb = new StringBuilder();
+                for (int i = 0, uc = sortedUniforms.Count; i < uc; i++)
+                {
+                    var uniform = sortedUniforms[i];
+                    if (isUbo)
+                    {
+                        uniformSb.Append("\t");
+                        uniformSb.Append(uniform.Type);
+                        uniformSb.Append(" ");
+                        uniformSb.Append(uniform.Name);
+
+                        mainFunc = mainFunc.Replace(uniform.Name, $"ubo.{uniform.Name}");
+                    }
+                    else
+                    {
+                        uniformSb.Append("uniform ");
+                        uniformSb.Append(uniform.Type);
+                        uniformSb.Append(" ");
+                        uniformSb.Append(uniform.Name);
+                    }
+                    uniformSb.Append(i == uc - 1 ? ";" : ";\n");
+                }
+
+                var fragTemplate = Resources.Load<TextAsset>($"Templates/{(int)target}/frag").text;
+                var fragShader = fragTemplate
+                    .Replace("__UNIFORMS__", uniformSb.ToString())
+                    .Replace("__MAIN__", mainFunc);
+
+                if (target is ShaderTargetPlatform.OpenGLCore or ShaderTargetPlatform.OpenGLES3)
+                {
+                    // 调用 Rust glslang 库验证最终 GLSL 语法
+                    GlslVerify.Validate(fragShader, errors);
+
+                    var vertTemplate = Resources.Load<TextAsset>($"Templates/{(int)target}/vert").text;
+                    var shaderText = $"{vertTemplate}\n#ifdef FRAGMENT\n{fragShader}\n#endif";
+                    return new ShaderParseResult(uniforms, sortedUniforms, errors, shaderText);
+                }
+                else
+                {
+                    if (Glsl2Spirv.Compile(fragShader, out var error, out var spv))
+                    {
+                        var smolv = Smolv.Encode(spv);
+                        return new ShaderParseResult(uniforms, sortedUniforms, errors, shaderBytes: smolv);
+                    }
+                    else
+                    {
+                        errors.Add(error);
+                        throw new Exception();
+                    }
+                }
+            }
+            catch
             {
-                if (!SupportedUniformTypes.Contains(u.Type))
-                    errors.Add($"不支持的 uniform 类型 \"{u.Name}\"（{u.Name}）：只允许 float/vec2/vec3/vec4");
+                return ShaderParseResult.Empty;
             }
-
-            // 追加内置 uniform（跳过用户已声明的）
-            foreach (var builtin in BuiltInUniforms)
-            {
-                if (!uniforms.Exists(u => u.Name == builtin.Name))
-                    uniforms.Add(builtin);
-            }
-
-            // 提取 uniform外的内容
-            var mainFunc = UniformRegex.Replace(clean, string.Empty);
-
-            // 4. 构建最终 GLSL：将用户代码合并到模板中
-            var vertTemplate = Resources.Load<TextAsset>($"Templates/{(int)shaderTargetPlatform}/vert").text;
-            var fragTemplate = Resources.Load<TextAsset>($"Templates/{(int)shaderTargetPlatform}/frag").text;
-
-            // 提取 uniform 声明的原始文本（不含 _Time，模板已自带）
-            var uniformDecls = new List<string>();
-            foreach (Match m in UniformRegex.Matches(clean))
-            {
-                string uniformName = m.Groups[2].Value;
-                if (BuiltInUniforms.Exists(b => b.Name == uniformName)) continue;
-                uniformDecls.Add(m.Value.Trim());
-            }
-
-            var fragShader = fragTemplate
-                .Replace("__UNIFORMS__", string.Join("\n", uniformDecls))
-                .Replace("__MAIN__", mainFunc);
-
-            // 调用 Rust glslang 库验证最终 GLSL 语法
-            ValidateGlsl(fragShader, errors);
-
-            var shaderText = $"{vertTemplate}\n#ifdef FRAGMENT\n{fragShader}\n#endif";
-            return new ShaderParseResult(uniforms, errors, shaderText);
         }
+
+        // 模式解释：
+        // void\s+mainImage   : void 和 mainImage 之间至少一个空白字符
+        // \s*\(\s*           : 左括号前后允许空白
+        // out\s+vec4\s+fragColor : out 与 vec4、vec4 与 fragColor 之间至少一个空白
+        // \s*,\s*            : 逗号前后允许空白
+        // in\s+vec2\s+fragCoord : 同理
+        // \s*\)              : 右括号前允许空白
+        private static readonly Regex MainFuncRegex = new(@"void\s+mainImage\s*\(\s*out\s+vec4\s+fragColor\s*,\s*in\s+vec2\s+fragCoord\s*\)");
+
+        /// <summary>
+        /// 解析 GLSL 源码，提取 uniform 声明并进行校验。
+        /// 语法层面的校验（类型检查、未定义变量等）已交由 glslang Rust 库处理。
+        /// </summary>
+        /// <param name="source">GLSL 源码</param>
+        //internal static ShaderParseResult Parse(
+        //    string source,
+        //    ShaderTargetPlatform shaderTargetPlatform)
+        //{
+        //    var uniforms = new List<UniformInfo>();
+        //    var errors = new List<string>();
+
+        //    // 模板结构约束校验（预编译指令、layout、precision 等）
+        //    ValidateFragmentOnly(source, errors);
+
+        //    // 提取 uniform
+        //    string clean = StripCommentsAndPreprocessor(source);
+
+        //    foreach (Match m in UniformRegex.Matches(clean))
+        //    {
+        //        uniforms.Add(new UniformInfo(m.Groups[1].Value, m.Groups[2].Value));
+        //    }
+
+        //    // 校验 uniform 类型（仅允许 float/vec2/vec3/vec4 四种）
+        //    foreach (var u in uniforms)
+        //    {
+        //        if (!SupportedUniformTypes.Contains(u.Type))
+        //            errors.Add($"不支持的 uniform 类型 \"{u.Name}\"（{u.Name}）：只允许 float/vec2/vec3/vec4");
+        //    }
+
+        //    // 追加内置 uniform（跳过用户已声明的）
+        //    foreach (var builtin in BuiltInUniforms)
+        //    {
+        //        if (!uniforms.Exists(u => u.Name == builtin.Name))
+        //            uniforms.Add(builtin);
+        //    }
+
+        //    // 提取 uniform外的内容
+        //    var mainFunc = UniformRegex.Replace(clean, string.Empty);
+
+        //    // 4. 构建最终 GLSL：将用户代码合并到模板中
+        //    var vertTemplate = Resources.Load<TextAsset>($"Templates/{(int)shaderTargetPlatform}/vert").text;
+        //    var fragTemplate = Resources.Load<TextAsset>($"Templates/{(int)shaderTargetPlatform}/frag").text;
+
+        //    // 提取 uniform 声明的原始文本（不含 _Time，模板已自带）
+        //    var uniformDecls = new List<string>();
+        //    foreach (Match m in UniformRegex.Matches(clean))
+        //    {
+        //        string uniformName = m.Groups[2].Value;
+        //        if (BuiltInUniforms.Exists(b => b.Name == uniformName)) continue;
+        //        uniformDecls.Add(m.Value.Trim());
+        //    }
+
+        //    var fragShader = fragTemplate
+        //        .Replace("__UNIFORMS__", string.Join("\n", uniformDecls))
+        //        .Replace("__MAIN__", mainFunc);
+
+        //    // 调用 Rust glslang 库验证最终 GLSL 语法
+        //    ValidateGlsl(fragShader, errors);
+
+        //    var shaderText = $"{vertTemplate}\n#ifdef FRAGMENT\n{fragShader}\n#endif";
+        //    return new ShaderParseResult(uniforms, errors, shaderText);
+        //}
 
         // ===== 工具 =====
 

@@ -17,8 +17,6 @@ precision highp int;
 #define UNITY_BINDING(x) layout(std140)
 #endif
 
-uniform vec4 _Time;
-uniform vec2 _ScreenSize;
 __UNIFORMS__
 
 UNITY_LOCATION(0) uniform mediump sampler2D _MainTex;
@@ -33,11 +31,9 @@ vec4 tex2D(vec2 uv) {
     return texture(_MainTex, uv);
 }
 
-// User's shader entry point (Shadertoy-style)
 __MAIN__
 
 void main() {
-    vec4 fragColor = vec4(1);
-    mainImage(fragColor, vs_TEXCOORD0);
-    SV_Target0 = fragColor;
+    SV_Target0 = vec4(1);
+    mainImage(SV_Target0, vs_TEXCOORD0);
 }
