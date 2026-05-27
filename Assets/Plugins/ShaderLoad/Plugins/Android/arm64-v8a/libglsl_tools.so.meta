@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 3231a0d9309df3c4292b7dfec7f925ed
+guid: 2e94a64e32954624bb45c5c9b787bcba
 PluginImporter:
   externalObjects: {}
   serializedVersion: 2
@@ -67,11 +67,6 @@ PluginImporter:
       enabled: 0
       settings:
         CPU: None
-  - first:
-      WebGL: WebGL
-    second:
-      enabled: 0
-      settings: {}
   - first:
       iPhone: iOS
     second:

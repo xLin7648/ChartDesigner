@@ -1,10 +1,16 @@
 {
     "name": "ShaderLoad",
     "rootNamespace": "",
-    "references": [
-        "GUID:cf95b0688d4710e4b8691e839c7b34a6"
+    "references": [],
+    "includePlatforms": [
+        "Android",
+        "Editor",
+        "iOS",
+        "macOSStandalone",
+        "tvOS",
+        "WindowsStandalone32",
+        "WindowsStandalone64"
     ],
-    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

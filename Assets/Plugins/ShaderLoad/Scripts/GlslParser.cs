@@ -2,14 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using UnityEditor.PackageManager;
-using UnityEditor.Search;
 using UnityEngine;
-using UnityEngine.Windows;
-using static UnityEngine.GraphicsBuffer;
 
 namespace ShaderLoad
 {
@@ -109,13 +104,13 @@ namespace ShaderLoad
             string source,
             ShaderTargetPlatform target)
         {
+            var errors = new List<string>();
             try
             {
                 bool isUbo = target is ShaderTargetPlatform.Vulkan or ShaderTargetPlatform.Metal;
 
                 var uniforms = new List<UniformInfo>();
-                var errors = new List<string>();
-
+               
                 // 模板结构约束校验（预编译指令、layout、precision 等）
                 ValidateFragmentOnly(source, errors);
 
@@ -124,8 +119,7 @@ namespace ShaderLoad
 
                 if (!MainFuncRegex.IsMatch(clean))
                 {
-                    errors.Add("无论如何都必须有 void mainImage(out vec4 fragColor, in vec2 fragCoord)");
-                    throw new Exception();
+                    throw new Exception("无论如何都必须有 void mainImage(out vec4 fragColor, in vec2 fragCoord)");
                 }
 
                 uniforms.AddRange(UniformParser.ParseUniformsFromShader(target, clean, errors));
@@ -161,31 +155,35 @@ namespace ShaderLoad
                     .Replace("__UNIFORMS__", uniformSb.ToString())
                     .Replace("__MAIN__", mainFunc);
 
-                if (target is ShaderTargetPlatform.OpenGLCore or ShaderTargetPlatform.OpenGLES3)
+                // 调用 Rust glslang 库验证最终 GLSL 语法
+                if (!GlslTools.Verify(fragShader, isUbo, out var verifyErr))
                 {
-                    // 调用 Rust glslang 库验证最终 GLSL 语法
-                    GlslVerify.Validate(fragShader, errors);
-
+                    throw new Exception(verifyErr);
+                }
+               
+                if (!isUbo)
+                {
                     var vertTemplate = Resources.Load<TextAsset>($"Templates/{(int)target}/vert").text;
                     var shaderText = $"{vertTemplate}\n#ifdef FRAGMENT\n{fragShader}\n#endif";
                     return new ShaderParseResult(uniforms, sortedUniforms, errors, shaderText);
                 }
                 else
                 {
-                    if (Glsl2Spirv.Compile(fragShader, out var error, out var spv))
+                    
+                    if (GlslTools.ToSpirv(fragShader, out var spv, out var error))
                     {
                         var smolv = Smolv.Encode(spv);
                         return new ShaderParseResult(uniforms, sortedUniforms, errors, shaderBytes: smolv);
                     }
                     else
                     {
-                        errors.Add(error);
-                        throw new Exception();
+                        throw new Exception(error);
                     }
                 }
             }
-            catch
+            catch (Exception e)
             {
+                errors.Add(e.Message);
                 return ShaderParseResult.Empty;
             }
         }
@@ -197,71 +195,8 @@ namespace ShaderLoad
         // \s*,\s*            : 逗号前后允许空白
         // in\s+vec2\s+fragCoord : 同理
         // \s*\)              : 右括号前允许空白
-        private static readonly Regex MainFuncRegex = new(@"void\s+mainImage\s*\(\s*out\s+vec4\s+fragColor\s*,\s*in\s+vec2\s+fragCoord\s*\)");
-
-        /// <summary>
-        /// 解析 GLSL 源码，提取 uniform 声明并进行校验。
-        /// 语法层面的校验（类型检查、未定义变量等）已交由 glslang Rust 库处理。
-        /// </summary>
-        /// <param name="source">GLSL 源码</param>
-        //internal static ShaderParseResult Parse(
-        //    string source,
-        //    ShaderTargetPlatform shaderTargetPlatform)
-        //{
-        //    var uniforms = new List<UniformInfo>();
-        //    var errors = new List<string>();
-
-        //    // 模板结构约束校验（预编译指令、layout、precision 等）
-        //    ValidateFragmentOnly(source, errors);
-
-        //    // 提取 uniform
-        //    string clean = StripCommentsAndPreprocessor(source);
-
-        //    foreach (Match m in UniformRegex.Matches(clean))
-        //    {
-        //        uniforms.Add(new UniformInfo(m.Groups[1].Value, m.Groups[2].Value));
-        //    }
-
-        //    // 校验 uniform 类型（仅允许 float/vec2/vec3/vec4 四种）
-        //    foreach (var u in uniforms)
-        //    {
-        //        if (!SupportedUniformTypes.Contains(u.Type))
-        //            errors.Add($"不支持的 uniform 类型 \"{u.Name}\"（{u.Name}）：只允许 float/vec2/vec3/vec4");
-        //    }
-
-        //    // 追加内置 uniform（跳过用户已声明的）
-        //    foreach (var builtin in BuiltInUniforms)
-        //    {
-        //        if (!uniforms.Exists(u => u.Name == builtin.Name))
-        //            uniforms.Add(builtin);
-        //    }
-
-        //    // 提取 uniform外的内容
-        //    var mainFunc = UniformRegex.Replace(clean, string.Empty);
-
-        //    // 4. 构建最终 GLSL：将用户代码合并到模板中
-        //    var vertTemplate = Resources.Load<TextAsset>($"Templates/{(int)shaderTargetPlatform}/vert").text;
-        //    var fragTemplate = Resources.Load<TextAsset>($"Templates/{(int)shaderTargetPlatform}/frag").text;
-
-        //    // 提取 uniform 声明的原始文本（不含 _Time，模板已自带）
-        //    var uniformDecls = new List<string>();
-        //    foreach (Match m in UniformRegex.Matches(clean))
-        //    {
-        //        string uniformName = m.Groups[2].Value;
-        //        if (BuiltInUniforms.Exists(b => b.Name == uniformName)) continue;
-        //        uniformDecls.Add(m.Value.Trim());
-        //    }
-
-        //    var fragShader = fragTemplate
-        //        .Replace("__UNIFORMS__", string.Join("\n", uniformDecls))
-        //        .Replace("__MAIN__", mainFunc);
-
-        //    // 调用 Rust glslang 库验证最终 GLSL 语法
-        //    ValidateGlsl(fragShader, errors);
-
-        //    var shaderText = $"{vertTemplate}\n#ifdef FRAGMENT\n{fragShader}\n#endif";
-        //    return new ShaderParseResult(uniforms, errors, shaderText);
-        //}
+        private static readonly Regex MainFuncRegex = 
+            new(@"void\s+mainImage\s*\(\s*out\s+vec4\s+fragColor\s*,\s*in\s+vec2\s+fragCoord\s*\)");
 
         // ===== 工具 =====
 

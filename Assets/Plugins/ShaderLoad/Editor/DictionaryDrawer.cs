@@ -1,4 +1,5 @@
-﻿using UnityEditor;
+﻿#if UNITY_EDITOR
+using UnityEditor;
 using UnityEngine;
 using ShaderLoad.Util;
 
@@ -102,3 +103,4 @@ namespace ShaderLoad.Editor
         }
     }
 }
+#endif

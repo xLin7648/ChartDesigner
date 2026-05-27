@@ -71,8 +71,8 @@ public class GUI : MonoBehaviour
         if (shaderAB.HasValue)
         {
             postProcessEffect = postProcessManager.AddEffect(shaderAB.Value.Shader, shaderAB.Value.ParseResult.Uniforms);
-            //postProcessEffect.SetFloat("sampleCount", 3);
-            //postProcessEffect.SetFloat("power", 0.03F);
+            postProcessEffect.SetFloat("sampleCount", 3);
+            postProcessEffect.SetFloat("power", 0.03F);
             //p.SetFloat("size", 10);
         }
     }

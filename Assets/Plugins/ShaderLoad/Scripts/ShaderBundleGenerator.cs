@@ -1,16 +1,15 @@
-﻿using AssetsTools.NET;
+﻿using LZ4ps;
+using AssetsTools.NET;
 using AssetsTools.NET.Extra;
-using Codice.Client.BaseCommands;
-using LZ4ps;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using ShaderLoad.Util;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using ShaderLoad.Util;
 
 namespace ShaderLoad
 {
@@ -148,27 +147,26 @@ namespace ShaderLoad
             string shaderName
         )
         {
-            var parseResult = GlslParser.Parse(glsl, GetGraphicsApiPlatform());
-            if (!parseResult.IsValid)
-            {
-                foreach (var err in parseResult.Errors)
-                {
-                    Debug.LogError(err);
-                }
-                return null;
-            }
-
-            bundleName = bundleName.ToLower();
-            shaderName = shaderName.ToLower();
-
-            var savePath = Application.persistentDataPath;
-            Create_Internal(bundleName, shaderName, savePath, parseResult);
-            var bundle = AssetBundle.LoadFromFile(Path.Combine(savePath, $"{bundleName}.assets"));
-
-            return new ShaderBundle(shaderName, bundle, parseResult);
             try
             {
-                
+                var parseResult = GlslParser.Parse(glsl, GetGraphicsApiPlatform());
+                if (!parseResult.IsValid)
+                {
+                    foreach (var err in parseResult.Errors)
+                    {
+                        Debug.LogError(err);
+                    }
+                    return null;
+                }
+
+                bundleName = bundleName.ToLower();
+                shaderName = shaderName.ToLower();
+
+                var savePath = Application.persistentDataPath;
+                Create_Internal(bundleName, shaderName, savePath, parseResult);
+                var bundle = AssetBundle.LoadFromFile(Path.Combine(savePath, $"{bundleName}.assets"));
+
+                return new ShaderBundle(shaderName, bundle, parseResult);
             }
             catch (Exception ex)
             {

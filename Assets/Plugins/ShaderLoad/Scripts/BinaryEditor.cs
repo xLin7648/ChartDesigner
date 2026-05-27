@@ -1,7 +1,7 @@
-﻿using ShaderLoad.Util;
-using System;
+﻿using System;
 using System.Text;
 using UnityEngine;
+using ShaderLoad.Util;
 
 namespace ShaderLoad
 {
@@ -175,16 +175,13 @@ namespace ShaderLoad
         }
     }
 
-    public static class VulkanBinaryEditor
+    internal static class VulkanBinaryEditor
     {
         // 已知常量
-        private const int OldFragmentSmolvSize = 0x0263;
         private const int FragmentStart = 0x0138;
         private const int VertexStart = 0x039B;
         private const int VertexSmolvSize = 0x02CF;
         private const int TrailerDataStart = 0x066C; // trailer实际数据起始 (不包含padding)
-        private const int OriginalModule2Size = 0x061C;
-        private const int OriginalTotalHeadSmolv = 0x05E2;
 
         /// <summary>
         /// 修改shader二进制数据

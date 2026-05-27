@@ -1,7 +1,7 @@
-﻿using AssetsTools.NET;
+﻿using System;
+using AssetsTools.NET;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System;
 
 namespace ShaderLoad.Util
 {
