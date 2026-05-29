@@ -1,0 +1,25 @@
+name: circleblur
+glsl: |
+  uniform float size;
+
+  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec4 c = tex2D();
+    float length = dot(c, c);
+    vec2 pixel_size = 1.0 / screenSize;
+    for (float x = -size; x < size; x++) {
+      for (float y = -size; y < size; ++y) {
+        if (x * x + y * y > size * size) continue;
+        vec4 new_c = tex2D(fragCoord + pixel_size * vec2(x, y));
+        float new_length = dot(new_c, new_c);
+        if (new_length > length) {
+          length = new_length;
+          c = new_c;
+        }
+      }
+    }
+    fragColor = c;
+  }
+defaultVars:
+  size:
+    val: 10.0
+    type: float

@@ -1,0 +1,56 @@
+name: shockwave
+glsl: |
+  uniform float progress;
+  uniform float centerX;
+  uniform float centerY;
+  uniform float width;
+  uniform float distortion;
+  uniform float expand;
+
+  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    float aspect = screenSize.y / screenSize.x;
+
+    vec2 center = vec2(centerX, centerY);
+    center.y = (center.y - 0.5) * aspect + 0.5;
+
+    vec2 tex_coord = fragCoord;
+      tex_coord.y = (tex_coord.y - 0.5) * aspect + 0.5;
+    float dist = distance(tex_coord, center);
+
+    if (progress - width <= dist && dist <= progress + width) {
+      float diff = dist - progress;
+      float scale_diff = 1.0 - pow(abs(diff * expand), distortion);
+      float dt = diff * scale_diff;
+
+      vec2 dir = normalize(tex_coord - center);
+
+      tex_coord += ((dir * dt) / (progress * dist * 40.0));
+      fragColor = tex2D(vec2(tex_coord.x, (tex_coord.y - 0.5) / aspect + 0.5));
+
+      fragColor += (fragColor * scale_diff) / (progress * dist * 40.0);
+    } else {
+      fragColor = tex2D(vec2(tex_coord.x, (tex_coord.y - 0.5) / aspect + 0.5));
+    }
+  }
+defaultVars:
+  progress:
+    val: 0.2
+    type: float
+    range: [0, 1]
+  centerX:
+    val: 0.5
+    type: float
+    range: [0, 1]
+  centerY:
+    val: 0.5
+    type: float
+    range: [0, 1]
+  width:
+    val: 0.1
+    type: float
+  distortion:
+    val: 0.8
+    type: float
+  expand:
+    val: 10.0
+    type: float

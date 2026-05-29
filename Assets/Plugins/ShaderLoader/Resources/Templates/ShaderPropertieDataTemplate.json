@@ -1,0 +1,17 @@
+{
+  "m_Name": "_MainTex",
+  "m_Description": "MainTex",
+  "m_Attributes": {
+    "Array": []
+  },
+  "m_Type": 4,
+  "m_Flags": 0,
+  "m_DefValue[0]": 0.0,
+  "m_DefValue[1]": 0.0,
+  "m_DefValue[2]": 0.0,
+  "m_DefValue[3]": 0.0,
+  "m_DefTexture": {
+    "m_DefaultName": "white",
+    "m_TexDim": 2
+  }
+}

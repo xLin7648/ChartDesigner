@@ -1,5 +1,4 @@
-﻿using ShaderLoad;
-using ShaderLoad.PostProcess;
+﻿using ShaderLoader;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -68,11 +67,12 @@ public class GUI : MonoBehaviour
         var name = Input_ShaderName.text.ToLower();
 
         shaderAB = generator.Create(Input_Shader.text, name, name);
-        if (shaderAB.HasValue)
+        if (shaderAB.HasValue && shaderAB.Value.TryGetShader(name, out var shader, out var parseResult))
         {
-            postProcessEffect = postProcessManager.AddEffect(shaderAB.Value.Shader, shaderAB.Value.ParseResult.Uniforms);
+            postProcessEffect = postProcessManager.AddEffect(shader, parseResult.Uniforms);
             postProcessEffect.SetFloat("sampleCount", 3);
             postProcessEffect.SetFloat("power", 0.03F);
+            postProcessEffect.IsActive = true;
             //p.SetFloat("size", 10);
         }
     }

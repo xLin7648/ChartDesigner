@@ -1,0 +1,14 @@
+name: pixel
+glsl: |
+  uniform float size;
+
+  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 factor = screenSize / size;
+    float x = floor(fragCoord.x * factor.x + 0.5) / factor.x;
+    float y = floor(fragCoord.y * factor.y + 0.5) / factor.y;
+    fragColor = tex2D(vec2(x, y));
+  }
+defaultVars:
+  size:
+    val: 10.0
+    type: float

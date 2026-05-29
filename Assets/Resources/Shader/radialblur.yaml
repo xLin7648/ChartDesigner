@@ -1,0 +1,31 @@
+name: radialblur
+glsl: |
+  uniform float centerX;
+  uniform float centerY;
+  uniform float power;
+  uniform float sampleCount;
+
+  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 direction = fragCoord - vec2(centerX, centerY);
+    vec3 c = vec3(0.0);
+    float f = 1.0 / sampleCount;
+    vec2 screen_uv = fragCoord / 2.0 + vec2(0.5, 0.5);
+    for (float i = 0.0; i < 64.0; ++i) {
+      if (i >= sampleCount) break;
+      c += tex2D(fragCoord - power * direction * i).rgb * f;
+    }
+    fragColor.rgb = c;
+  }
+defaultVars:
+  centerX:
+    val: 0.5
+    type: float
+  centerY:
+    val: 0.5
+    type: float
+  power:
+    val: 0.01
+    type: float
+  sampleCount:
+    val: 6
+    type: float

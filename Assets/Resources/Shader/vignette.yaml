@@ -1,0 +1,23 @@
+name: vignette
+glsl: |
+  uniform vec4 color;
+  uniform float extend;
+  uniform float radius;
+
+  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 new_uv = fragCoord * (1.0 - fragCoord.yx);
+    float vig = new_uv.x * new_uv.y * radius;
+    vig = pow(vig, extend);
+    fragColor = mix(color, tex2D(), vig);
+  }
+defaultVars:
+  color:
+    val: [0.0, 0.0, 0.0, 1.0]
+    type: vec4
+  extend:
+    val: 0.25
+    type: float
+    range: [0, 1]
+  radius:
+    val: 15.0
+    type: float

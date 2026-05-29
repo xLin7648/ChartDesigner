@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 
 public class FpsSetter : MonoBehaviour
@@ -7,8 +7,8 @@ public class FpsSetter : MonoBehaviour
 
     private void Awake()
     {
+        Application.targetFrameRate = -1;
         QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = 120;
     }
 
     private void Update()

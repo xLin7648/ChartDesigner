@@ -1,0 +1,21 @@
+name: noise
+glsl: |
+  uniform float seed;
+  uniform float power;
+
+  vec2 random(vec2 pos) {
+    return fract(sin(vec2(dot(pos, vec2(12.9898,78.233)), dot(pos, vec2(-148.998,-65.233)))) * 43758.5453);
+  }
+
+  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 new_uv = fragCoord + (random(fragCoord + vec2(seed, 0.0)) - vec2(0.5, 0.5)) * power;
+    fragColor = tex2D(new_uv);
+  }
+defaultVars:
+  seed:
+    val: 81.0
+    type: float
+  power:
+    val: 0.03
+    type: float
+    range: [0, 1]

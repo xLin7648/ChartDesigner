@@ -1,0 +1,15 @@
+name: grayscale
+glsl: |
+  uniform float factor;
+
+  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec3 color = tex2D().xyz;
+    vec3 lum = vec3(0.299, 0.587, 0.114);
+    vec3 gray = vec3(dot(lum, color));
+    fragColor = vec4(mix(color, gray, factor), 1.0);
+  }
+defaultVars:
+  factor:
+    val: 1.0
+    type: float
+    range: [0, 1]
