@@ -66,6 +66,7 @@ public class ChartLoader : MonoBehaviour
                 catch
                 {
                     var entry = varValue.ToObject<VarEntry>(serializer);
+                    entry.endTime = music.length;
                     effect.vars.Add(varName, new List<VarEntry>() { entry });
                 }
             }

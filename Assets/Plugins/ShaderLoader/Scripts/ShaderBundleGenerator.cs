@@ -198,6 +198,10 @@ namespace ShaderLoader
                 var savePath = Application.persistentDataPath;
                 Create_Internal(bundleName, shaderName, savePath, parseResult);
                 var bundle = AssetBundle.LoadFromFile(Path.Combine(savePath, $"{bundleName}.assets"));
+                if (bundle == null)
+                {
+                    return null;
+                }
 
                 return new ShaderBundle(shaderName, bundle, parseResult);
             }
@@ -238,6 +242,10 @@ namespace ShaderLoader
                 var savePath = Application.persistentDataPath;
                 Creates_Internal(bundleName, shaderList, savePath);
                 var bundle = AssetBundle.LoadFromFile(Path.Combine(savePath, $"{bundleName}.assets"));
+                if (bundle == null)
+                {
+                    return null;
+                }
 
                 return new ShaderBundle(shaderList, bundle);
             }
