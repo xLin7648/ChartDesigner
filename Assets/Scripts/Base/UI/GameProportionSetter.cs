@@ -94,7 +94,10 @@ public class GameProportionSetter : MonoBehaviour
             rt = new RenderTexture(
                 resultWidth, resultHeight,
                 32, RenderTextureFormat.ARGB32
-            );
+            )
+            {
+                antiAliasing = 4
+            };
             RawImage_GameView.texture =
                 Camera_Game.targetTexture = rt;
 

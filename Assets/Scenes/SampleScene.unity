@@ -506,7 +506,6 @@ Canvas:
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
-  m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 25
   m_SortingLayerID: 0
   m_SortingOrder: 0
@@ -888,7 +887,6 @@ Canvas:
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
-  m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 25
   m_SortingLayerID: 0
   m_SortingOrder: -20
@@ -903,6 +901,7 @@ GameObject:
   m_Component:
   - component: {fileID: 274008004}
   - component: {fileID: 274008005}
+  - component: {fileID: 274008006}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -933,9 +932,26 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 274008003}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b48f6ce35fa7f340afbae75ddf01f2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  chartAsset: {fileID: 4900000, guid: 93d3bc9ab47515848b1b9af051522139, type: 3}
+  chart:
+    formatVersion: 0
+    offset: 0
+    judges: []
+--- !u!114 &274008006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 274008003}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e2c55cbaee320984da06e9ba93ce86be, type: 3}
+  m_Script: {fileID: 11500000, guid: bc844b074353a75429cac3e7a36fd0d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   cam: {fileID: 1946689346}
@@ -1859,7 +1875,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 22400762, guid: 67117722a812a2e46ab8cb8eafbf5f5e, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -0.000015258789
+      value: -0.00002670288
       objectReference: {fileID: 0}
     - target: {fileID: 22426080, guid: 67117722a812a2e46ab8cb8eafbf5f5e, type: 3}
       propertyPath: m_AnchorMax.x
